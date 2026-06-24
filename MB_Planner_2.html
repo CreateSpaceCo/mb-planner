@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MB Planner</title>
+<style>
+  :root {
+    --fym: #4F46E5; --fym-bg: #EEF2FF; --fym-text: #3730A3;
+    --cs: #16A34A; --cs-bg: #F0FDF4; --cs-text: #166534;
+    --hvh: #EA580C; --hvh-bg: #FFF7ED; --hvh-text: #9A3412;
+    --client-bg: #F8FAFC; --client-text: #475569;
+    --surface: #FFFFFF; --bg: #F8F9FB; --border: #E5E7EB;
+    --text: #111827; --muted: #6B7280; --hint: #9CA3AF;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; min-height: 100vh; }
+
+  /* Auth screen */
+  #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; text-align: center; }
+  #auth-screen h1 { font-size: 24px; font-weight: 600; margin-bottom: 6px; }
+  #auth-screen p { color: var(--muted); margin-bottom: 2rem; font-size: 14px; }
+  .ms-btn { display: inline-flex; align-items: center; gap: 10px; background: #0078D4; color: white; border: none; padding: 12px 24px; border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; }
+  .ms-btn:hover { background: #106EBE; }
+  .ms-btn svg { width: 20px; height: 20px; }
+
+  /* App shell */
+  #app { display: none; max-width: 720px; margin: 0 auto; padding: 0 0 80px; }
+  .top-bar { padding: 16px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+  .top-bar h1 { font-size: 20px; font-weight: 600; }
+  .user-btn { background: none; border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
+
+  /* Tabs */
+  .tabs { display: flex; padding: 12px 20px 0; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 0; }
+  .tab { padding: 8px 16px; font-size: 14px; font-weight: 500; border: none; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+  /* Venture filter */
+  .filters { display: flex; gap: 6px; padding: 14px 20px 0; flex-wrap: wrap; }
+  .vbtn { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1.5px solid transparent; transition: opacity 0.15s; }
+  .vbtn.all { background: #F1F5F9; color: #334155; border-color: #CBD5E1; }
+  .vbtn.fym { background: var(--fym-bg); color: var(--fym-text); border-color: #C7D2FE; }
+  .vbtn.cs  { background: var(--cs-bg);  color: var(--cs-text);  border-color: #BBF7D0; }
+  .vbtn.hvh { background: var(--hvh-bg); color: var(--hvh-text); border-color: #FED7AA; }
+  .vbtn.dim { opacity: 0.35; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; padding: 14px 20px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .stat-num { font-size: 24px; font-weight: 600; }
+  .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Section label */
+  .sec-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--hint); padding: 0 20px; margin: 14px 0 6px; }
+
+  /* Task rows */
+  .task { display: flex; align-items: flex-start; gap: 10px; padding: 10px 20px; cursor: pointer; border-bottom: 1px solid var(--border); background: var(--surface); transition: background 0.1s; }
+  .task:first-child { border-top: 1px solid var(--border); }
+  .task:hover { background: #F9FAFB; }
+  .task.done .task-name { text-decoration: line-through; opacity: 0.45; }
+  .chk { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .chk.on { background: var(--text); border-color: var(--text); }
+  .task-name { font-size: 14px; flex: 1; line-height: 1.45; padding-top: 1px; }
+  .task-meta { display: flex; gap: 5px; align-items: center; margin-top: 3px; flex-wrap: wrap; }
+  .badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 10px; }
+  .badge.fym { background: var(--fym-bg); color: var(--fym-text); }
+  .badge.cs  { background: var(--cs-bg);  color: var(--cs-text); }
+  .badge.hvh { background: var(--hvh-bg); color: var(--hvh-text); }
+  .badge.client { background: var(--client-bg); color: var(--client-text); border: 1px solid var(--border); }
+  .due-tag { font-size: 11px; color: var(--hint); }
+  .due-tag.today { color: #DC2626; font-weight: 500; }
+
+  /* Add task */
+  .add-area { padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-top: 8px; }
+  .add-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .add-row input, .add-row select { font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+  .add-row input { flex: 1; min-width: 160px; }
+  .add-row button { padding: 8px 16px; background: var(--text); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .add-row button:hover { opacity: 0.85; }
+
+  /* Goals */
+  .goals-list { padding: 0 20px; }
+  .goal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
+  .goal-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+  .goal-title { font-size: 15px; font-weight: 500; flex: 1; }
+  .goal-pct { font-size: 13px; color: var(--muted); white-space: nowrap; margin-top: 2px; }
+  .goal-sub { display: flex; gap: 6px; align-items: center; margin-top: 3px; }
+  .goal-due { font-size: 12px; color: var(--muted); }
+  .prog-bg { height: 4px; background: var(--bg); border-radius: 4px; margin-bottom: 10px; }
+  .prog-fill { height: 4px; border-radius: 4px; background: var(--text); transition: width 0.3s; }
+  .ms-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); cursor: pointer; }
+  .ms-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .ms-dot.on { background: var(--text); border-color: var(--text); }
+  .ms-text { font-size: 13px; flex: 1; }
+  .ms-text.done { text-decoration: line-through; opacity: 0.4; }
+
+  /* Add goal */
+  .add-goal-area { padding: 0 20px; margin-top: 12px; }
+  .add-goal-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .add-goal-form h3 { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+  .form-row { margin-bottom: 10px; }
+  .form-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .form-row input, .form-row select { width: 100%; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+  .ms-inputs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .ms-input-row { display: flex; gap: 6px; }
+  .ms-input-row input { flex: 1; font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+  .ms-input-row button { padding: 7px 10px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 16px; color: var(--muted); }
+  .add-ms-btn { font-size: 13px; color: var(--muted); background: none; border: none; cursor: pointer; padding: 4px 0; }
+  .form-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .btn-save { padding: 9px 18px; background: var(--text); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-cancel { padding: 9px 18px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--muted); }
+  .add-goal-btn { width: 100%; padding: 11px; font-size: 14px; border: 1.5px dashed var(--border); border-radius: var(--radius); background: none; color: var(--muted); cursor: pointer; }
+  .add-goal-btn:hover { background: var(--surface); }
+
+  /* Loading / error */
+  .status-bar { text-align: center; padding: 10px 20px; font-size: 13px; color: var(--muted); }
+  .status-bar.error { color: #DC2626; }
+
+  /* Spinner */
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+
+  /* Mobile nav bottom */
+  @media (max-width: 600px) {
+    .top-bar h1 { font-size: 18px; }
+    .stats { grid-template-columns: repeat(3,1fr); gap: 6px; padding: 10px 14px; }
+    .stat-num { font-size: 20px; }
+    .task, .filters, .sec-label { padding-left: 14px; padding-right: 14px; }
+    .goals-list { padding: 0 14px; }
+    .add-goal-area { padding: 0 14px; }
+    .add-area { padding: 10px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth Screen -->
+<div id="auth-screen">
+  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin-bottom:16px;">
+    <rect width="48" height="48" rx="12" fill="#111827"/>
+    <path d="M14 24h20M24 14v20" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>
+  <h1>MB Planner</h1>
+  <p>Sign in with your Microsoft account to access your planner</p>
+  <button class="ms-btn" onclick="signIn()">
+    <svg viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="10" height="10" fill="#F25022"/><rect x="11" width="10" height="10" fill="#7FBA00"/>
+      <rect y="11" width="10" height="10" fill="#00A4EF"/><rect x="11" y="11" width="10" height="10" fill="#FFB900"/>
+    </svg>
+    Sign in with Microsoft
+  </button>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="top-bar">
+    <h1>MB Planner</h1>
+    <button class="user-btn" onclick="signOut()" id="user-name">Sign out</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('weekly', this)">This week</button>
+    <button class="tab" onclick="showTab('goals', this)">Goals</button>
+  </div>
+
+  <!-- Weekly view -->
+  <div id="weekly-view">
+    <div class="filters" id="task-filters">
+      <button class="vbtn all active" onclick="filterTasks('all', this)">All</button>
+      <button class="vbtn fym" onclick="filterTasks('fym', this)">Find Your More</button>
+      <button class="vbtn cs" onclick="filterTasks('cs', this)">Create Space</button>
+      <button class="vbtn hvh" onclick="filterTasks('hvh', this)">Healing Vine Harbor</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-num" id="s-done">—</div><div class="stat-lbl">Completed</div></div>
+      <div class="stat"><div class="stat-num" id="s-left">—</div><div class="stat-lbl">Remaining</div></div>
+      <div class="stat"><div class="stat-num" id="s-pct">—</div><div class="stat-lbl">Progress</div></div>
+    </div>
+
+    <div class="sec-label">Today</div>
+    <div id="today-list"></div>
+    <div class="sec-label">This week</div>
+    <div id="week-list"></div>
+
+    <div class="add-area">
+      <div class="add-row">
+        <input type="text" id="new-task-name" placeholder="Add a task..." />
+        <select id="new-task-venture">
+          <option value="fym">Find Your More</option>
+          <option value="cs">Create Space</option>
+          <option value="hvh">Healing Vine Harbor</option>
+          <option value="client">Client</option>
+        </select>
+        <select id="new-task-priority">
+          <option value="today">Today</option>
+          <option value="thisweek">This week</option>
+        </select>
+        <button onclick="addTask()">Add</button>
+      </div>
+    </div>
+    <div id="task-status" class="status-bar"></div>
+  </div>
+
+  <!-- Goals view -->
+  <div id="goals-view" style="display:none;">
+    <div class="filters" id="goal-filters">
+      <button class="vbtn all active" onclick="filterGoals('all', this)">All</button>
+      <button class="vbtn fym" onclick="filterGoals('fym', this)">Find Your More</button>
+      <button class="vbtn cs" onclick="filterGoals('cs', this)">Create Space</button>
+      <button class="vbtn hvh" onclick="filterGoals('hvh', this)">Healing Vine Harbor</button>
+    </div>
+    <div style="height:10px;"></div>
+    <div class="goals-list" id="goals-list"></div>
+    <div class="add-goal-area">
+      <button class="add-goal-btn" id="show-add-goal" onclick="showAddGoalForm()">+ Add a goal</button>
+      <div id="add-goal-form" style="display:none;">
+        <div class="add-goal-form">
+          <h3>New goal</h3>
+          <div class="form-row">
+            <label>Goal</label>
+            <input type="text" id="goal-title-input" placeholder="e.g. Launch Create Space Q3 programming" />
+          </div>
+          <div class="form-row">
+            <label>Venture</label>
+            <select id="goal-venture-input">
+              <option value="fym">Find Your More</option>
+              <option value="cs">Create Space</option>
+              <option value="hvh">Healing Vine Harbor</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Target date</label>
+            <input type="text" id="goal-due-input" placeholder="e.g. Dec 2026" />
+          </div>
+          <div class="form-row">
+            <label>Milestones</label>
+            <div class="ms-inputs" id="ms-inputs">
+              <div class="ms-input-row"><input type="text" placeholder="First milestone..." /></div>
+            </div>
+            <button class="add-ms-btn" onclick="addMilestoneInput()">+ Add milestone</button>
+          </div>
+          <div class="form-actions">
+            <button class="btn-save" onclick="saveGoal()">Save goal</button>
+            <button class="btn-cancel" onclick="hideAddGoalForm()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="goal-status" class="status-bar"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────
+const CLIENT_ID   = '31a109d0-c7b0-4658-8941-c346250ed3b3';
+const TENANT      = 'netorg15724273.onmicrosoft.com';
+const FILE_ID     = '34D63EED-9B6E-436B-B5BE-5B6949364458';
+const REDIRECT    = 'https://createspaceco.github.io/mb-planner/MB_Planner_1.html';
+const SCOPES      = 'Files.ReadWrite Sites.ReadWrite.All User.Read';
+const AUTH_URL    = `https://login.microsoftonline.com/netorg15724273.onmicrosoft.com/oauth2/v2.0/authorize`;
+const TOKEN_URL   = `https://login.microsoftonline.com/netorg15724273.onmicrosoft.com/oauth2/v2.0/token`;
+const GRAPH       = 'https://graph.microsoft.com/v1.0';
+
+// ── STATE ───────────────────────────────────────────────────────────────
+let token = localStorage.getItem('mb_token') || null;
+let tasks = [], goals = [], milestones = [];
+let taskFilter = 'all', goalFilter = 'all';
+
+// ── AUTH ────────────────────────────────────────────────────────────────
+function signIn() {
+  const verifier = generateVerifier();
+  sessionStorage.setItem('cv', verifier);
+  generateChallenge(verifier).then(challenge => {
+    const params = new URLSearchParams({
+      client_id: CLIENT_ID, response_type: 'code',
+      redirect_uri: REDIRECT, scope: SCOPES,
+      code_challenge: challenge, code_challenge_method: 'S256',
+      response_mode: 'query'
+    });
+    window.location.href = `${AUTH_URL}?${params}`;
+  });
+}
+
+function generateVerifier() {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function generateChallenge(v) {
+  const enc = new TextEncoder().encode(v);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function handleCallback(code) {
+  const verifier = sessionStorage.getItem('cv');
+  const body = new URLSearchParams({
+    client_id: CLIENT_ID, grant_type: 'authorization_code',
+    code, redirect_uri: REDIRECT,
+    code_verifier: verifier, scope: SCOPES
+  });
+  try {
+    const r = await fetch(TOKEN_URL, { method: 'POST', body, headers: {'Content-Type':'application/x-www-form-urlencoded'} });
+    const data = await r.json();
+    if (data.access_token) {
+      localStorage.setItem('mb_token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('mb_refresh', data.refresh_token);
+      token = data.access_token;
+      window.history.replaceState({}, '', window.location.pathname);
+      startApp();
+    } else { showAuthError('Sign-in failed. Please try again.'); }
+  } catch(e) { showAuthError('Connection error. Please try again.'); }
+}
+
+function showAuthError(msg) {
+  document.getElementById('auth-screen').innerHTML += `<p style="color:#DC2626;margin-top:12px;font-size:13px;">${msg}</p>`;
+}
+
+function signOut() {
+  localStorage.removeItem('mb_token');
+  localStorage.removeItem('mb_refresh');
+  location.reload();
+}
+
+// ── GRAPH API ───────────────────────────────────────────────────────────
+async function graphGet(path) {
+  const r = await fetch(`${GRAPH}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`Graph error ${r.status}`);
+  return r.json();
+}
+
+async function excelGet(sheet, range) {
+  return graphGet(`/me/drive/items/${FILE_ID}/workbook/worksheets/${sheet}/range(address='${range}')`);
+}
+
+async function excelUpdate(sheet, range, values) {
+  const r = await fetch(`${GRAPH}/me/drive/items/${FILE_ID}/workbook/worksheets/${sheet}/range(address='${range}')`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values })
+  });
+  if (!r.ok) throw new Error(`Update error ${r.status}`);
+  return r.json();
+}
+
+async function excelAppend(sheet, values) {
+  // Find next empty row
+  const used = await graphGet(`/me/drive/items/${FILE_ID}/workbook/worksheets/${sheet}/usedRange`);
+  const nextRow = (used.rowCount || 1) + 1;
+  const cols = values[0].length;
+  const endCol = String.fromCharCode(64 + cols);
+  return excelUpdate(sheet, `A${nextRow}:${endCol}${nextRow}`, values);
+}
+
+// ── DATA LOAD ───────────────────────────────────────────────────────────
+async function loadAll() {
+  setStatus('task-status', '<span class="spinner"></span> Loading...');
+  try {
+    const [tData, gData, mData] = await Promise.all([
+      excelGet('Tasks', 'A1:E200'),
+      excelGet('Goals', 'A1:D50'),
+      excelGet('Milestones', 'A1:D200')
+    ]);
+    tasks = parseSheet(tData.values, ['id','name','venture','priority','done']);
+    goals = parseSheet(gData.values, ['id','title','venture','due']);
+    milestones = parseSheet(mData.values, ['id','goalId','text','done']);
+    setStatus('task-status', '');
+    render();
+  } catch(e) {
+    setStatus('task-status', 'Could not load data. Check your Excel file has Tasks, Goals, and Milestones sheets with headers in row 1.', true);
+  }
+}
+
+function parseSheet(values, keys) {
+  if (!values || values.length < 2) return [];
+  return values.slice(1).filter(r => r[0] && r[0] !== '').map(r => {
+    const obj = {};
+    keys.forEach((k,i) => obj[k] = r[i] !== undefined ? String(r[i]) : '');
+    if (obj.done !== undefined) obj.done = obj.done === 'true' || obj.done === '1' || obj.done === 'TRUE';
+    return obj;
+  });
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────
+function render() { renderTasks(); renderGoals(); }
+
+function ventureName(v) {
+  return {fym:'Find Your More', cs:'Create Space', hvh:'Healing Vine Harbor', client:'Client'}[v] || v;
+}
+
+function renderTasks() {
+  const all = tasks.filter(t => taskFilter === 'all' || t.venture === taskFilter);
+  const todays = all.filter(t => t.priority === 'today');
+  const week   = all.filter(t => t.priority === 'thisweek');
+  const done   = all.filter(t => t.done).length;
+  const left   = all.length - done;
+  const pct    = all.length ? Math.round(done/all.length*100) : 0;
+  document.getElementById('s-done').textContent = done;
+  document.getElementById('s-left').textContent = left;
+  document.getElementById('s-pct').textContent  = pct + '%';
+  document.getElementById('today-list').innerHTML = taskRows(todays);
+  document.getElementById('week-list').innerHTML  = taskRows(week);
+}
+
+function taskRows(list) {
+  if (!list.length) return '<div class="empty">Nothing here yet</div>';
+  return list.map(t => `
+    <div class="task ${t.done?'done':''}" onclick="toggleTask('${t.id}')">
+      <div class="chk ${t.done?'on':''}">
+        ${t.done?'<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+      </div>
+      <div style="flex:1;">
+        <div class="task-name">${t.name}</div>
+        <div class="task-meta">
+          <span class="badge ${t.venture}">${ventureName(t.venture)}</span>
+          <span class="due-tag ${t.priority==='today'?'today':''}">${t.priority==='today'?'Due today':'This week'}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderGoals() {
+  const list = goals.filter(g => goalFilter === 'all' || g.venture === goalFilter);
+  if (!list.length) { document.getElementById('goals-list').innerHTML = '<div class="empty">No goals yet — add one below</div>'; return; }
+  document.getElementById('goals-list').innerHTML = list.map(g => {
+    const ms = milestones.filter(m => m.goalId === g.id);
+    const done = ms.filter(m => m.done).length;
+    const pct  = ms.length ? Math.round(done/ms.length*100) : 0;
+    return `
+    <div class="goal-card">
+      <div class="goal-top">
+        <div style="flex:1;">
+          <div class="goal-title">${g.title}</div>
+          <div class="goal-sub"><span class="badge ${g.venture}">${ventureName(g.venture)}</span><span class="goal-due">Target: ${g.due}</span></div>
+        </div>
+        <span class="goal-pct">${pct}%</span>
+      </div>
+      <div class="prog-bg"><div class="prog-fill" style="width:${pct}%"></div></div>
+      ${ms.map((m,i) => `
+        <div class="ms-row" onclick="toggleMilestone('${m.id}')">
+          <div class="ms-dot ${m.done?'on':''}">
+            ${m.done?'<svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+          </div>
+          <span class="ms-text ${m.done?'done':''}">${m.text}</span>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── ACTIONS ──────────────────────────────────────────────────────────────
+async function toggleTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  t.done = !t.done;
+  renderTasks();
+  // Find row in sheet
+  try {
+    const used = await excelGet('Tasks', 'A1:E200');
+    const rows = used.values;
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) === id) {
+        await excelUpdate('Tasks', `E${i+1}`, [[t.done ? 'true' : 'false']]);
+        break;
+      }
+    }
+  } catch(e) { setStatus('task-status', 'Could not save. Check connection.', true); }
+}
+
+async function addTask() {
+  const name = document.getElementById('new-task-name').value.trim();
+  if (!name) return;
+  const venture  = document.getElementById('new-task-venture').value;
+  const priority = document.getElementById('new-task-priority').value;
+  const id = Date.now().toString();
+  const newTask = { id, name, venture, priority, done: false };
+  tasks.push(newTask);
+  renderTasks();
+  document.getElementById('new-task-name').value = '';
+  setStatus('task-status', '<span class="spinner"></span> Saving...');
+  try {
+    await excelAppend('Tasks', [[id, name, venture, priority, 'false']]);
+    setStatus('task-status', '');
+  } catch(e) { setStatus('task-status', 'Saved locally but could not write to Excel.', true); }
+}
+
+async function toggleMilestone(id) {
+  const m = milestones.find(x => x.id === id);
+  if (!m) return;
+  m.done = !m.done;
+  renderGoals();
+  try {
+    const used = await excelGet('Milestones', 'A1:D200');
+    const rows = used.values;
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) === id) {
+        await excelUpdate('Milestones', `D${i+1}`, [[m.done ? 'true' : 'false']]);
+        break;
+      }
+    }
+  } catch(e) { setStatus('goal-status', 'Could not save. Check connection.', true); }
+}
+
+async function saveGoal() {
+  const title = document.getElementById('goal-title-input').value.trim();
+  if (!title) return;
+  const venture = document.getElementById('goal-venture-input').value;
+  const due     = document.getElementById('goal-due-input').value.trim() || 'TBD';
+  const gId     = Date.now().toString();
+  const msInputs = document.querySelectorAll('#ms-inputs input');
+  const msTexts  = Array.from(msInputs).map(i => i.value.trim()).filter(Boolean);
+
+  goals.push({ id: gId, title, venture, due });
+  msTexts.forEach(text => {
+    milestones.push({ id: Date.now().toString() + Math.random(), goalId: gId, text, done: false });
+  });
+  renderGoals();
+  hideAddGoalForm();
+  setStatus('goal-status', '<span class="spinner"></span> Saving...');
+  try {
+    await excelAppend('Goals', [[gId, title, venture, due]]);
+    for (const text of msTexts) {
+      const mId = Date.now().toString() + Math.random().toString().slice(2,6);
+      await excelAppend('Milestones', [[mId, gId, text, 'false']]);
+    }
+    setStatus('goal-status', '');
+  } catch(e) { setStatus('goal-status', 'Could not write to Excel. Data shown but not saved.', true); }
+}
+
+// ── UI HELPERS ───────────────────────────────────────────────────────────
+function showTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('weekly-view').style.display = tab === 'weekly' ? '' : 'none';
+  document.getElementById('goals-view').style.display  = tab === 'goals'  ? '' : 'none';
+}
+
+function filterTasks(v, btn) {
+  taskFilter = v;
+  document.querySelectorAll('#task-filters .vbtn').forEach(b => { b.classList.remove('active','dim'); b.classList.add(v === 'all' || b === btn ? 'active' : 'dim'); });
+  renderTasks();
+}
+
+function filterGoals(v, btn) {
+  goalFilter = v;
+  document.querySelectorAll('#goal-filters .vbtn').forEach(b => { b.classList.remove('active','dim'); b.classList.add(v === 'all' || b === btn ? 'active' : 'dim'); });
+  renderGoals();
+}
+
+function showAddGoalForm() {
+  document.getElementById('show-add-goal').style.display = 'none';
+  document.getElementById('add-goal-form').style.display = '';
+}
+
+function hideAddGoalForm() {
+  document.getElementById('show-add-goal').style.display = '';
+  document.getElementById('add-goal-form').style.display = 'none';
+  document.getElementById('goal-title-input').value = '';
+  document.getElementById('goal-due-input').value = '';
+  document.getElementById('ms-inputs').innerHTML = '<div class="ms-input-row"><input type="text" placeholder="First milestone..." /></div>';
+}
+
+function addMilestoneInput() {
+  const row = document.createElement('div');
+  row.className = 'ms-input-row';
+  row.innerHTML = '<input type="text" placeholder="Next milestone..." /><button onclick="this.parentElement.remove()">×</button>';
+  document.getElementById('ms-inputs').appendChild(row);
+}
+
+function setStatus(id, msg, isError) {
+  const el = document.getElementById(id);
+  el.innerHTML = msg;
+  el.className = 'status-bar' + (isError ? ' error' : '');
+}
+
+document.getElementById('new-task-name').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+// ── BOOT ─────────────────────────────────────────────────────────────────
+async function startApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  try {
+    const me = await graphGet('/me');
+    const name = me.displayName || me.userPrincipalName || 'MaryBeth';
+    document.getElementById('user-name').textContent = name.split(' ')[0] + ' · Sign out';
+  } catch(e) {}
+  loadAll();
+}
+
+// Check for auth callback or existing token
+const params = new URLSearchParams(window.location.search);
+if (params.get('code')) {
+  handleCallback(params.get('code'));
+} else if (token) {
+  startApp();
+}
+</script>
+</body>
+</html>
