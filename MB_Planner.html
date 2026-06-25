@@ -565,13 +565,13 @@ function taskRows(list){
     var noteHtml=t.note?'<div class="task-note">'+t.note+'</div>':'';
     var recurHtml=t.recur&&t.recur!=='none'&&t.recur!==''?'<span class="recur-tag">recur: '+t.recur+'</span>':'';
     var subsBody=subs.map(function(s){
-      return '<div class="subtask-row"><div class="sub-chk '+( s.done?'on':'')+'" onclick="toggleSubtask(''+s.id+'')">'+
+      return '<div class="subtask-row"><div class="sub-chk '+(s.done?'on':'')+'" data-action="toggleSubtask" data-id="'+s.id+'">'+
         (s.done?'<svg width="7" height="5" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
         '</div><span class="subtask-name '+(s.done?'done':'')+'">'+s.name+'</span></div>';
     }).join('');
-    return '<div class="task'+cls+'" id="task-'+t.id+'">'+
+    return '<div class="task'+cls+'" id="task-'+t.id+'" data-id="'+t.id+'">'+
       '<div class="task-main">'+
-      '<div class="chk '+(t.done?'on':'')+'" onclick="toggleTask(''+t.id+'')">'+
+      '<div class="chk '+(t.done?'on':'')+'" data-action="toggleTask" data-id="'+t.id+'">'+
       (t.done?'<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
       '</div>'+
       '<div class="task-body">'+
@@ -579,17 +579,16 @@ function taskRows(list){
       noteHtml+
       '<div class="task-meta"><span class="badge '+t.venture+'">'+vName(t.venture)+'</span>'+priHtml+'<span class="due-tag'+dueCls+'">'+formatDate(t.priority)+'</span>'+recurHtml+subsHtml+'</div>'+
       '<div class="task-actions">'+
-      '<button class="task-btn" onclick="toggleSubtasks(''+t.id+'')">+ subtask</button>'+
-      '<button class="task-btn" onclick="editTask(''+t.id+'')">edit</button>'+
-      '<button class="task-btn del" onclick="confirmDelete(''+t.id+'')">delete</button>'+
+      '<button class="task-btn" data-action="toggleSubtasks" data-id="'+t.id+'">+ subtask</button>'+
+      '<button class="task-btn" data-action="editTask" data-id="'+t.id+'">edit</button>'+
+      '<button class="task-btn del" data-action="confirmDelete" data-id="'+t.id+'">delete</button>'+
       '</div></div></div>'+
       '<div class="subtasks" id="subs-'+t.id+'" style="display:none;">'+
       subsBody+
-      '<div class="add-subtask-row"><input type="text" id="sub-input-'+t.id+'" placeholder="Add subtask..." onkeydown="if(event.key==='Enter')addSubtask(''+t.id+'')" /><button onclick="addSubtask(''+t.id+'')">Add</button></div>'+
+      '<div class="add-subtask-row"><input type="text" id="sub-input-'+t.id+'" data-taskid="'+t.id+'" placeholder="Add subtask..." class="subtask-input" /><button data-action="addSubtask" data-id="'+t.id+'">Add</button></div>'+
       '</div></div>';
   }).join('');
 }
-
 function toggleSubtasks(id){
   var el=document.getElementById('subs-'+id);
   if(el) el.style.display=el.style.display==='none'?'block':'none';
@@ -599,7 +598,7 @@ function renderInbox(){
   var inbox=tasks.filter(function(t){return t.bucket==='inbox'&&!t.done;});
   if(!inbox.length){document.getElementById('inbox-list').innerHTML='<div class="empty">Inbox is clear!</div>';return;}
   document.getElementById('inbox-list').innerHTML=inbox.map(function(t){
-    return '<div class="inbox-card" onclick="openSortModal(''+t.id+'')">'+
+    return '<div class="inbox-card" data-action="openSortModal" data-id="'+t.id+'">'+ 
       '<div class="inbox-card-name">'+t.name+'</div>'+
       '<div class="inbox-card-meta">Tap to sort into your week</div>'+
       '</div>';
@@ -612,7 +611,7 @@ function renderSomeday(){
     return '<div class="someday-card">'+
       '<span class="badge '+s.venture+'">'+vName(s.venture)+'</span>'+
       '<span class="someday-name">'+s.name+'</span>'+
-      '<button class="someday-promote" onclick="promoteSomeday(''+s.id+'')">Move to This Week</button>'+
+      '<button class="someday-promote" data-action="promoteSomeday" data-id="'+s.id+'">Move to This Week</button>'+
       '</div>';
   }).join('');
 }
@@ -625,7 +624,7 @@ function renderGoals(){
     var done=ms.filter(function(m){return m.done;}).length;
     var pct=ms.length?Math.round(done/ms.length*100):0;
     var msHtml=ms.map(function(m){
-      return '<div class="ms-row" onclick="toggleMilestone(''+m.id+'')">'+
+      return '<div class="ms-row" data-action="toggleMilestone" data-id="'+m.id+'">'+ 
         '<div class="ms-dot '+(m.done?'on':'')+'">'+
         (m.done?'<svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
         '</div><span class="ms-text '+(m.done?'done':'')+'">'+m.text+'</span></div>';
@@ -816,8 +815,8 @@ function renderExtracted(list){
       (t.note?' - '+t.note:'')+
       '</div></div></div>';
   }).join('');
-  var listJson=JSON.stringify(list).replace(/\/g,'\\').replace(/'/g,"\'");
-  html+='<button class="add-extracted-btn" onclick="addExtractedTasks(''+listJson+'')">Add checked tasks to Inbox</button>';
+  window._extractedList = list;
+  html+='<button class="add-extracted-btn" onclick="addExtractedTasks()">Add checked tasks to Inbox</button>';
   el.innerHTML=html;
 }
 async function addExtractedTasks(){
@@ -897,8 +896,8 @@ function editTask(id){
     '<option value="medium"'+(t.taskpriority==='medium'?' selected':'')+'>Medium</option>'+
     '<option value="low"'+(t.taskpriority==='low'?' selected':'')+'>Low</option>'+
     '</select>'+
-    '<button class="save-btn" onclick="saveEdit(''+id+'')">Save</button>'+
-    '<button class="cancel-btn" onclick="document.getElementById('edit-'+id+'').remove()">Cancel</button>';
+    '<button class="save-btn" data-action="saveEdit" data-id="'+id+'">Save</button>'+
+    '<button class="cancel-btn" data-action="cancelEditRow" data-id="'+id+'">Cancel</button>';
   document.getElementById('task-'+id).after(row);
 }
 async function saveEdit(id){
@@ -1001,6 +1000,32 @@ document.addEventListener('DOMContentLoaded',function(){
   document.getElementById('new-task-name').addEventListener('keydown',function(e){if(e.key==='Enter')addTask();});
   document.getElementById('quick-input').addEventListener('keydown',function(e){if(e.key==='Enter')quickCapture();});
   document.getElementById('someday-input').addEventListener('keydown',function(e){if(e.key==='Enter')addSomeday();});
+  // Event delegation for dynamically rendered elements
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('[data-action]');
+    if(!el) return;
+    var action=el.getAttribute('data-action');
+    var id=el.getAttribute('data-id');
+    if(action==='toggleTask') toggleTask(id);
+    else if(action==='toggleSubtask') toggleSubtask(id);
+    else if(action==='toggleSubtasks') toggleSubtasks(id);
+    else if(action==='editTask') editTask(id);
+    else if(action==='confirmDelete') confirmDelete(id);
+    else if(action==='openSortModal') openSortModal(id);
+    else if(action==='promoteSomeday') promoteSomeday(id);
+    else if(action==='toggleMilestone') toggleMilestone(id);
+    else if(action==='addSubtask') addSubtask(id);
+    else if(action==='saveEdit') saveEdit(id);
+    else if(action==='cancelEditRow') { var row=document.getElementById('edit-'+id); if(row) row.remove(); }
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){
+      var el=e.target;
+      if(el.classList.contains('subtask-input')){
+        addSubtask(el.getAttribute('data-taskid'));
+      }
+    }
+  });
   checkAuth();
 });
 </script>
