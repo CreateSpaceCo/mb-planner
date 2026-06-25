@@ -788,9 +788,7 @@ async function runBrainDump(){
         model:'claude-sonnet-4-6',
         max_tokens:1000,
         system:'You are a task extraction assistant for MaryBeth Simon who runs Find Your More (fym), Create Space (cs), and Healing Vine Harbor (hvh). Extract tasks from her brain dump. Respond ONLY with a valid JSON array, no markdown, no extra text. Each item: {"name":"task","venture":"fym|cs|hvh|personal|client","priority":"high|medium|low|none","note":"optional"}. Max 8 tasks.',
-        messages:[{role:'user',content:'Extract tasks:
-
-'+text}]
+        messages:[{role:'user',content:'Extract tasks: '+text}]
       })
     });
     var data=await response.json();
