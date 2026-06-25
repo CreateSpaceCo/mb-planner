@@ -822,8 +822,8 @@ function renderExtracted(list){
   html+='<button class="add-extracted-btn" onclick="addExtractedTasks(''+listJson+'')">Add checked tasks to Inbox</button>';
   el.innerHTML=html;
 }
-async function addExtractedTasks(listJson){
-  var list=JSON.parse(listJson);
+async function addExtractedTasks(){
+  var list=window._extractedList||[];
   var checkboxes=document.querySelectorAll('#extracted-tasks input[type=checkbox]');
   for(var i=0;i<list.length;i++){
     if(checkboxes[i]&&checkboxes[i].checked){
