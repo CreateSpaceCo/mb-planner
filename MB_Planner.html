@@ -69,6 +69,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .due-tag.overdue{color:#DC2626;font-weight:500;}
 .due-tag.urgent{color:#D97706;font-weight:500;}
 .recur-tag{font-size:11px;color:#9CA3AF;}
+.milestone-task{background:#FAFDF7;border-left:3px solid #16A34A !important;}
+.milestone-task .task-main{border-left:none !important;}
+.milestone-badge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;}
 .task-actions{display:flex;gap:4px;opacity:0;transition:opacity .1s;margin-top:3px;}
 .task-main:hover .task-actions{opacity:1;}
 .task-btn{background:none;border:none;cursor:pointer;font-size:12px;color:#9CA3AF;padding:2px 5px;border-radius:4px;}
@@ -539,8 +542,16 @@ function renderTasks(){
   var todays=active.filter(function(t){return t.priority===today;});
   var thisWeek=active.filter(function(t){return t.priority>today&&t.priority<=we;});
   var upcoming=active.filter(function(t){return t.priority>we||!t.priority;});
+  // Get incomplete milestones filtered by venture
+  var incompleteMilestones=milestones.filter(function(m){
+    if(m.done) return false;
+    var goal=goals.find(function(g){return g.id===m.goalId;});
+    if(!goal) return false;
+    if(taskFilter!=='all'&&goal.venture!==taskFilter) return false;
+    return true;
+  });
   document.getElementById('s-done').textContent=done.length;
-  document.getElementById('s-left').textContent=active.length;
+  document.getElementById('s-left').textContent=active.length+incompleteMilestones.length;
   document.getElementById('s-overdue').textContent=overdue.length;
   var total=done.length+active.length;
   document.getElementById('s-pct').textContent=total?Math.round(done.length/total*100)+'%':'0%';
@@ -550,6 +561,39 @@ function renderTasks(){
   document.getElementById('week-list').innerHTML=taskRows(thisWeek);
   var ul=document.getElementById('upcoming-label');ul.style.display=upcoming.length?'flex':'none';
   document.getElementById('upcoming-list').innerHTML=taskRows(upcoming);
+  // Render milestones section
+  var mlabel=document.getElementById('milestones-label');
+  var mlist=document.getElementById('milestones-list');
+  if(!mlabel){
+    mlabel=document.createElement('div');
+    mlabel.className='sec-label';mlabel.id='milestones-label';
+    mlabel.innerHTML='<span>Goal Milestones</span>';
+    mlist=document.createElement('div');
+    mlist.id='milestones-list';
+    var addArea=document.querySelector('#weekly-view .add-area');
+    if(addArea){addArea.before(mlabel);mlabel.after(mlist);}
+  }
+  mlabel.style.display=incompleteMilestones.length?'flex':'none';
+  if(mlist) mlist.innerHTML=milestoneTaskRows(incompleteMilestones);
+}
+
+function milestoneTaskRows(list){
+  if(!list.length) return '';
+  return list.map(function(m){
+    var goal=goals.find(function(g){return g.id===m.goalId;})||{};
+    return '<div class="task milestone-task" id="ms-task-'+m.id+'">'+
+      '<div class="task-main">'+
+      '<div class="ms-dot '+(m.done?'on':'')+'" data-action="toggleMilestone" data-id="'+m.id+'" style="width:20px;height:20px;border-radius:50%;border:1.5px solid #D1D5DB;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;cursor:pointer;">'+
+      (m.done?'<svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+
+      '</div>'+
+      '<div class="task-body">'+
+      '<div class="task-name">'+m.text+'</div>'+
+      '<div class="task-meta">'+
+      '<span class="milestone-badge">Milestone</span>'+
+      '<span class="badge '+(goal.venture||'fym')+'">'+vName(goal.venture||'fym')+'</span>'+
+      '<span style="font-size:11px;color:#9CA3AF;">'+( goal.title||'')+'</span>'+
+      '</div></div></div></div>';
+  }).join('');
 }
 
 function taskRows(list){
